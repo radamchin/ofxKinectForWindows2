@@ -1,10 +1,10 @@
 #include "ofApp.h"
 
-int previewWidth = 640;
-int previewHeight = 480;
+int pw = 640;
+int ph = 480;
 
 //--------------------------------------------------------------
-void ofApp::setup(){
+void ofApp::setup() {
 	kinect.open();
 	kinect.initDepthSource();
 	kinect.initColorSource();
@@ -12,7 +12,8 @@ void ofApp::setup(){
 	kinect.initBodySource();
 	kinect.initBodyIndexSource();
 
-	ofSetWindowShape(previewWidth * 2, previewHeight * 2);
+	ofSetWindowShape(pw * 2, ph * 2);
+
 }
 
 //--------------------------------------------------------------
@@ -51,7 +52,7 @@ void ofApp::update(){
 				auto firstJointInBone = body.joints[bone.first];
 				auto secondJointInBone = body.joints[bone.second];
 
-				//now do something with the joints
+				//now do something with the joints  
 			}
 		}
 	}
@@ -61,19 +62,23 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-	kinect.getDepthSource()->draw(0, 0, previewWidth, previewHeight);  // note that the depth texture is RAW so may appear dark
+
+	kinect.getDepthSource()->draw(0, 0, pw, ph);  // note that the depth texture is RAW so may appear dark
 	
 	// Color is at 1920x1080 instead of 512x424 so we should fix aspect ratio
-	float colorHeight = previewWidth * (kinect.getColorSource()->getHeight() / kinect.getColorSource()->getWidth());
-	float colorTop = (previewHeight - colorHeight) / 2.0;
+	float colorHeight = pw * (kinect.getColorSource()->getHeight() / kinect.getColorSource()->getWidth());
+	float colorTop = (ph - colorHeight) / 2.0;
 
-	kinect.getColorSource()->draw(previewWidth, 0 + colorTop, previewWidth, colorHeight);
-	kinect.getBodySource()->drawProjected(previewWidth, 0 + colorTop, previewWidth, colorHeight);
+	kinect.getColorSource()->draw(pw, 0 + colorTop, pw, colorHeight);
+	kinect.getBodySource()->drawProjected(pw, 0 + colorTop, pw, colorHeight);
 	
-	kinect.getInfraredSource()->draw(0, previewHeight, previewWidth, previewHeight);
+	kinect.getInfraredSource()->draw(0, ph, pw, ph);
 	
-	kinect.getBodyIndexSource()->draw(previewWidth, previewHeight, previewWidth, previewHeight);
-	kinect.getBodySource()->drawProjected(previewWidth, previewHeight, previewWidth, previewHeight, ofxKFW2::ProjectionCoordinates::DepthCamera);
+	kinect.getBodyIndexSource()->draw(pw, ph, pw, ph);
+	kinect.getBodySource()->drawProjected(pw, ph, pw, ph, ofxKFW2::ProjectionCoordinates::DepthCamera);
+
+	ofDrawBitmapString(ofGetFrameRate(), 5, 15);
+
 }
 
 //--------------------------------------------------------------
@@ -108,6 +113,10 @@ void ofApp::mouseReleased(int x, int y, int button){
 
 //--------------------------------------------------------------
 void ofApp::windowResized(int w, int h){
+
+	pw = w / 2;
+	ph = h / 2;
+
 
 }
 
