@@ -1,6 +1,16 @@
 ofxKinectForWindows2
 ====================
 
+
+  How to configure in oF0.11 and VS 2017 (May 2020)
+  * Generate project in project generator, but DO NOT including the ofxKinectForWIndows2 addon
+  * Open project, then the Property Manager (View -> Other Windows -> Property Manager)
+  * Right click on your project to select "Add Existing Property Sheet..." and select the ../of/addons/ofxKinectForWindows2/ofxKinectForWindows2.props file.
+  * Go back to Solution Explorer, right click Solution and choose.. Add.. -> Existing Project.  Choosing ../of/addons/ofxKinectForWindows2/ofxKinectForWindows2Lib/ofxKinectForWindows2Lib.vcxproj
+  * Right click references of your app in Solution Explorer, choose Add Reference.. and select ofxKinectForWindows2Lib
+  
+====================
+
 ![exampleWithGui](https://raw.github.com/elliotwoods/ofxKinectForWindows2/master/screenshots/exampleWithGui.png)
 
 Implementation of Kinect For Windows v2 API using COM (not KinectCommonBridge)
