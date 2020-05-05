@@ -30,6 +30,8 @@ namespace ofxKinectForWindows2 {
 		shared_ptr<Source::BodyIndex> initBodyIndexSource();
 		shared_ptr<Source::Body> initBodySource();
 
+		bool setGestureDatabase(string _database);
+
 		bool releaseMultiSource();
 
 		bool releaseDepthSource();

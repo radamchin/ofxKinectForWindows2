@@ -53,10 +53,64 @@ namespace ofxKinectForWindows2 {
 				}
 
 				bodies.resize(BODY_COUNT);
+
+				gestureResults.resize(BODY_COUNT);
+				for (int i = 0; i < BODY_COUNT; i++) {
+					gestureResults[i].id = -1;
+					gestureResults[i].value = false;
+				}
+				useGesture = false;
+
 			} catch (std::exception & e) {
 				SafeRelease(this->reader);
 				throw (e);
 			}
+		}
+
+		//----------
+		bool Body::setupVGBF(IKinectSensor * sensor, wstring db_file) {
+
+			if (SUCCEEDED(CreateVisualGestureBuilderDatabaseInstanceFromFile(db_file.c_str(), &database))) {
+				for (int i = 0; i < BODY_COUNT; i++) {
+					if (FAILED(CreateVisualGestureBuilderFrameSource(sensor, 0, &pGestureSource[i]))) {
+						throw(Exception("Failed to create VisualGestureBuilderFrameSource"));
+						return false;
+					}
+
+					if (FAILED(pGestureSource[i]->OpenReader(&pGestureReader[i]))) {
+						throw(Exception("Failed to open reader"));
+						return false;
+					}
+				}
+				UINT counts;
+				database->get_AvailableGesturesCount(&counts);
+				pGesture.resize(counts);
+				database->get_AvailableGestures(counts, &pGesture[0]);
+
+				for (int i = 0; i < counts; i++) {
+					GestureType t;
+					pGesture[i]->get_GestureType(&t);
+					if (pGesture[i] != nullptr) {
+						for (int j = 0; j < BODY_COUNT; j++) {
+							if (FAILED(pGestureSource[j]->AddGesture(pGesture[i]))) {
+								throw(Exception("Failed to add gesture"));
+								return false;
+							}
+							if (FAILED(pGestureSource[j]->SetIsEnabled(pGesture[i], true))) {
+								throw(Exception("Failed to setup"));
+								return false;
+							}
+						}
+					}
+					else {
+						throw(Exception("gesture is null"));
+						return false;
+					}
+				}
+				useGesture = true;
+				return useGesture;
+			}
+			return false;
 		}
 
 		//----------
@@ -124,6 +178,9 @@ namespace ofxKinectForWindows2 {
 							}
 
 							body.trackingId = trackingId;
+							if (useGesture) { 
+								pGestureSource[i]->put_TrackingId(trackingId);
+							}
 
 							// retrieve joint position & orientation
 
@@ -155,6 +212,67 @@ namespace ofxKinectForWindows2 {
 
 							body.leftHandState = leftHandState;
 							body.rightHandState = rightHandState;
+
+							if (useGesture) {
+								IVisualGestureBuilderFrame* pGestureFrame = nullptr;
+
+								if (SUCCEEDED(pGestureReader[i]->CalculateAndAcquireLatestFrame(&pGestureFrame))) {
+									BOOLEAN bGestureTracked = false;
+									pGestureFrame->get_IsTrackingIdValid(&bGestureTracked);
+
+									if (bGestureTracked) {
+										IDiscreteGestureResult* pGestureResult = nullptr;
+										IContinuousGestureResult* pContinuousGestureResult = nullptr;
+
+										for (int j = 0; j < pGesture.size(); j++) {
+
+											GestureType gestureType;
+											pGesture[j]->get_GestureType(&gestureType);
+
+											const UINT uTextLength = 260;
+											wchar_t sName[uTextLength];
+											pGesture[j]->get_Name(uTextLength, sName);
+
+											wstring ws(sName);
+											string name(ws.begin(), ws.end());
+											
+											if (gestureType == GestureType::GestureType_Continuous) {
+												if (SUCCEEDED(pGestureFrame->get_ContinuousGestureResult(pGesture[j], &pContinuousGestureResult))) {
+													float progress;
+													pContinuousGestureResult->get_Progress(&progress);
+
+													gestureResults[i].progress = progress;
+													gestureResults[i].id = j;
+													gestureResults[i].name = name;
+													UINT64 num;
+													pGestureFrame->get_TrackingId(&num);
+													//ofLog(OF_LOG_VERBOSE, "gesture:" + ofToString(j) + ", id:" + ofToString(num));
+												}
+											}
+											else if (gestureType == GestureType::GestureType_Discrete) {
+												if (SUCCEEDED(pGestureFrame->get_DiscreteGestureResult(pGesture[j], &pGestureResult))) {
+													BOOLEAN bDetected = false;
+													pGestureResult->get_Detected(&bDetected);
+													gestureResults[i].value = bDetected;
+													if (bDetected) {
+														float confidence;
+														pGestureResult->get_Confidence(&confidence);
+														gestureResults[i].confidence = confidence;
+														gestureResults[i].id = j;
+														gestureResults[i].name = name;
+														UINT64 num;
+														pGestureFrame->get_TrackingId(&num);
+														ofLogVerbose() << "gesture:" << j << ", name:'"  << name  << "', confidence:" + ofToString(confidence,2) + ", tracking-id:"  << num;
+													}
+												}
+											}
+										}
+										SafeRelease(pGestureResult);
+									}
+								}
+								SafeRelease(pGestureFrame);
+							}
+
 						}
 					}
 				}

@@ -156,6 +156,21 @@ namespace ofxKinectForWindows2 {
 	}
 
 	//----------
+	bool Device::setGestureDatabase(string _database) {
+		if (getBodySource() == NULL) { 
+			ofLog(OF_LOG_ERROR, "Cant setGestureDatabase: A body source must be initialised first."); 
+			return false;
+		}
+
+		// Convert wstring path.
+		std::wstring stow(+_database.length(), L' '); // Make room for characters
+		std::copy(_database.begin(), _database.end(), stow.begin());
+		wstring sDatabaseFile = L"data/" + stow;
+
+		return getBodySource()->setupVGBF(this->sensor, sDatabaseFile);
+	}
+
+	//----------
 	bool Device::releaseMultiSource() {
 		// look for sources initialized with MultiSource (those without their own reader)
 		// and erase them. They are consecutive in the vector
