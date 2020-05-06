@@ -167,7 +167,7 @@ namespace ofxKinectForWindows2 {
 		std::copy(_database.begin(), _database.end(), stow.begin());
 		wstring sDatabaseFile = L"data/" + stow;
 
-		return getBodySource()->setupVGBF(this->sensor, sDatabaseFile);
+		return getBodySource()->initGestures(this->sensor, sDatabaseFile);
 	}
 
 	//----------

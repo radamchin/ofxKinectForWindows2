@@ -13,11 +13,13 @@
 namespace ofxKinectForWindows2 {
 	namespace Source {
 
-		struct GestureResult {
-			bool value;
-			float progress;
-			float confidence;
+		struct GestureState {
+			int body;				// index of body associated too
+			bool continuous;		// Is it a continuous gesture (if false, discrete)
+			float value;			// Confidence or Progress
+			bool detected;			// Mainly for discrete gesture.
 			int id;
+			uint64_t update_time;	 // ofGetElapsedTimeMillis() of when update occured
 			string name;
 		};
 
@@ -26,7 +28,7 @@ namespace ofxKinectForWindows2 {
 		public:
 			string getTypeName() const override;
 			void init(IKinectSensor *, bool) override;
-			bool setupVGBF(IKinectSensor *, wstring db_file);
+			bool initGestures(IKinectSensor *, wstring db_file);
 
 			void update(IBodyFrame *) override;
 			void update(IMultiSourceFrame *) override;
@@ -48,12 +50,12 @@ namespace ofxKinectForWindows2 {
 			static void drawProjectedBone(map<JointType, Data::Joint> & pJoints, map<JointType, ofVec2f> & pJointPoints, JointType joint0, JointType joint1);
 			static void drawProjectedHand(HandState handState, ofVec2f & handPos);
 
-			const bool &getGestureResult(int n) { return gestureResults[n].value; }
-			const float &getGestureProgress(int n) { return gestureResults[n].progress; }
-			const float &getGestureConfidence(int n) { return gestureResults[n].confidence; }
-			const string &getGestureName(int n) { return gestureResults[n].name; }
-			const int &getGestureID(int n) { return getGestureResult(n) ? gestureResults[n].id : -1; }
-			int getGestureSize() { return pGesture.size(); }
+			const bool &getGestureIsContinuous(int body_index, int n) { return gesture_states[body_index][n].continuous; }
+			const bool &getGestureDetected(int body_index, int n) { return gesture_states[body_index][n].detected; }
+			const float &getGestureValue(int body_index, int n) { return gesture_states[body_index][n].value; } // progress or confidence.
+			const string &getGestureName(int body_index, int n) { return gesture_states[body_index][n].name; }
+			const int &getGestureID(int body_index, int n) { return getGestureDetected(body_index, n) ? gesture_states[body_index][n].id : -1; } // internal tracking/body id it is linked ot.
+			int getGestureCount() { return pGesture.size(); }
 
 		protected:
 			void initReader(IKinectSensor *) override;
@@ -64,7 +66,8 @@ namespace ofxKinectForWindows2 {
 
 			vector<Data::Body> bodies;
 			
-			vector<GestureResult> gestureResults;
+
+			vector< vector<GestureState> > gesture_states;
 			IVisualGestureBuilderDatabase * database;
 			vector<IGesture *> pGesture;
 			IVisualGestureBuilderFrameSource* pGestureSource[BODY_COUNT];

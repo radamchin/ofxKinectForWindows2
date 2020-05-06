@@ -54,11 +54,6 @@ namespace ofxKinectForWindows2 {
 
 				bodies.resize(BODY_COUNT);
 
-				gestureResults.resize(BODY_COUNT);
-				for (int i = 0; i < BODY_COUNT; i++) {
-					gestureResults[i].id = -1;
-					gestureResults[i].value = false;
-				}
 				useGesture = false;
 
 			} catch (std::exception & e) {
@@ -68,38 +63,69 @@ namespace ofxKinectForWindows2 {
 		}
 
 		//----------
-		bool Body::setupVGBF(IKinectSensor * sensor, wstring db_file) {
+		bool Body::initGestures(IKinectSensor * sensor, wstring db_file) {
 
 			if (SUCCEEDED(CreateVisualGestureBuilderDatabaseInstanceFromFile(db_file.c_str(), &database))) {
+				
 				for (int i = 0; i < BODY_COUNT; i++) {
 					if (FAILED(CreateVisualGestureBuilderFrameSource(sensor, 0, &pGestureSource[i]))) {
 						throw(Exception("Failed to create VisualGestureBuilderFrameSource"));
 						return false;
 					}
-
 					if (FAILED(pGestureSource[i]->OpenReader(&pGestureReader[i]))) {
 						throw(Exception("Failed to open reader"));
 						return false;
 					}
 				}
-				UINT counts;
-				database->get_AvailableGesturesCount(&counts);
-				pGesture.resize(counts);
-				database->get_AvailableGestures(counts, &pGesture[0]);
 
-				for (int i = 0; i < counts; i++) {
-					GestureType t;
-					pGesture[i]->get_GestureType(&t);
-					if (pGesture[i] != nullptr) {
+				UINT gesture_count;
+				database->get_AvailableGesturesCount(&gesture_count);
+				pGesture.resize(gesture_count);
+				database->get_AvailableGestures(gesture_count, &pGesture[0]);
+
+				// Setup the gesture_states with default empty states
+				gesture_states.resize(BODY_COUNT);
+
+				for (int b = 0; b < BODY_COUNT; b++) {
+					for (int g = 0; g<gesture_count; g++) {
+						GestureState state;
+						state.id = g;
+						state.value = false;
+						state.detected = false;
+						state.name = "Unknown";
+						state.update_time = ofGetElapsedTimeMillis();
+						state.body = b;
+						gesture_states[b].push_back(state);
+					}
+				}
+
+				// Read gestures from DB and add to source.
+				for (int g = 0; g<gesture_count; g++) {
+					GestureType type;
+					pGesture[g]->get_GestureType(&type);
+					if (pGesture[g] != nullptr) {
 						for (int j = 0; j < BODY_COUNT; j++) {
-							if (FAILED(pGestureSource[j]->AddGesture(pGesture[i]))) {
+							if (FAILED(pGestureSource[j]->AddGesture(pGesture[g]))) {
 								throw(Exception("Failed to add gesture"));
 								return false;
 							}
-							if (FAILED(pGestureSource[j]->SetIsEnabled(pGesture[i], true))) {
+							if (FAILED(pGestureSource[j]->SetIsEnabled(pGesture[g], true))) {
 								throw(Exception("Failed to setup"));
 								return false;
 							}
+
+							// Initialise static gesture values from DB.
+							const UINT uTextLength = 260;
+							wchar_t sName[uTextLength];
+							pGesture[g]->get_Name(uTextLength, sName);
+							wstring ws(sName);
+							string name(ws.begin(), ws.end());
+
+							for (int b = 0; b < BODY_COUNT; b++) {
+								gesture_states[b][g].name = name;
+								gesture_states[b][g].continuous = (type == GestureType::GestureType_Continuous);
+							}
+
 						}
 					}
 					else {
@@ -224,46 +250,45 @@ namespace ofxKinectForWindows2 {
 										IDiscreteGestureResult* pGestureResult = nullptr;
 										IContinuousGestureResult* pContinuousGestureResult = nullptr;
 
-										for (int j = 0; j < pGesture.size(); j++) {
+										for (int g = 0; g<pGesture.size(); g++) {
+
+											// TODO: Could save looking up type by reading gesture_states[i][g].continuous
 
 											GestureType gestureType;
-											pGesture[j]->get_GestureType(&gestureType);
+											pGesture[g]->get_GestureType(&gestureType);
 
-											const UINT uTextLength = 260;
-											wchar_t sName[uTextLength];
-											pGesture[j]->get_Name(uTextLength, sName);
-
-											wstring ws(sName);
-											string name(ws.begin(), ws.end());
-											
 											if (gestureType == GestureType::GestureType_Continuous) {
-												if (SUCCEEDED(pGestureFrame->get_ContinuousGestureResult(pGesture[j], &pContinuousGestureResult))) {
+												if (SUCCEEDED(pGestureFrame->get_ContinuousGestureResult(pGesture[g], &pContinuousGestureResult))) {
 													float progress;
 													pContinuousGestureResult->get_Progress(&progress);
+													gesture_states[i][g].detected = true;
+													gesture_states[i][g].value = progress;
+													//gesture_states[i][g].id = g;
+													gesture_states[i][g].update_time = ofGetElapsedTimeMillis();
 
-													gestureResults[i].progress = progress;
-													gestureResults[i].id = j;
-													gestureResults[i].name = name;
 													UINT64 num;
 													pGestureFrame->get_TrackingId(&num);
 													//ofLog(OF_LOG_VERBOSE, "gesture:" + ofToString(j) + ", id:" + ofToString(num));
 												}
 											}
 											else if (gestureType == GestureType::GestureType_Discrete) {
-												if (SUCCEEDED(pGestureFrame->get_DiscreteGestureResult(pGesture[j], &pGestureResult))) {
+												if (SUCCEEDED(pGestureFrame->get_DiscreteGestureResult(pGesture[g], &pGestureResult))) {
 													BOOLEAN bDetected = false;
 													pGestureResult->get_Detected(&bDetected);
-													gestureResults[i].value = bDetected;
+													gesture_states[i][g].detected = bDetected;
+													gesture_states[i][g].update_time = ofGetElapsedTimeMillis();
+
 													if (bDetected) {
 														float confidence;
 														pGestureResult->get_Confidence(&confidence);
-														gestureResults[i].confidence = confidence;
-														gestureResults[i].id = j;
-														gestureResults[i].name = name;
+														gesture_states[i][g].value = confidence;
+														//gesture_states[i][g].id = g;
+
 														UINT64 num;
 														pGestureFrame->get_TrackingId(&num);
-														ofLogVerbose() << "gesture:" << j << ", name:'"  << name  << "', confidence:" + ofToString(confidence,2) + ", tracking-id:"  << num;
+														ofLogVerbose() << "body:" << gesture_states[i][g].body << "," << i << ", gesture:" << gesture_states[i][g].id << "," << g << ", name:'" << gesture_states[i][g].name << "', confidence:" + ofToString(confidence,2) + ", tracking-id:"  << num;
 													}
+
 												}
 											}
 										}
