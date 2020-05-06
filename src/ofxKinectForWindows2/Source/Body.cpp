@@ -349,6 +349,11 @@ namespace ofxKinectForWindows2 {
 
 				map<JointType, ofVec2f> jntsProj;
 
+				ofColor bone_col = getColor(body.bodyId);
+				// joint colour? a darker variant of the bone_col?
+				ofColor joint_col(bone_col);
+				//joint_col.setBrightness(.75); // darker variant
+
 				for (auto & j : body.joints) {
 					ofVec2f & p = jntsProj[j.second.getType()] = ofVec2f();
 
@@ -360,12 +365,12 @@ namespace ofxKinectForWindows2 {
 					p.y = y + p.y / h * height;
 
 					int radius = (state == TrackingState_Inferred) ? 2 : 8;
-					ofSetColor(0, 255, 0);
+					ofSetColor(joint_col);
 					ofDrawCircle(p.x, p.y, radius);
 				}
 				
 				for (auto & bone : bonesAtlas) {
-					drawProjectedBone(body.joints, jntsProj, bone.first, bone.second);
+					drawProjectedBone(body.joints, jntsProj, bone.first, bone.second, bone_col);
 				}
 
 				drawProjectedHand(body.leftHandState, jntsProj[JointType_HandLeft]);
@@ -405,18 +410,20 @@ namespace ofxKinectForWindows2 {
 		}
 
 		//----------
-		void Body::drawProjectedBone(map<JointType, Data::Joint> & pJoints, map<JointType, ofVec2f> & pJointPoints, JointType joint0, JointType joint1){
+		void Body::drawProjectedBone(map<JointType, Data::Joint> & pJoints, map<JointType, ofVec2f> & pJointPoints, JointType joint0, JointType joint1, ofColor color){
 			TrackingState ts1 = pJoints[joint0].getTrackingState();
 			TrackingState ts2 = pJoints[joint1].getTrackingState();
 			if (ts1 == TrackingState_NotTracked || ts2 == TrackingState_NotTracked) return;
 			if (ts1 == TrackingState_Inferred && ts2 == TrackingState_Inferred) return;
 
-			int thickness = 5;
-			ofSetColor(0, 255, 0);
+			int thickness = 4;
+			ofSetColor(color);
+
 			if (ts1 == TrackingState_Inferred || ts2 == TrackingState_Inferred) {
 				thickness = 2;
-				ofSetColor(0, 128, 0);
+				//ofSetColor(0, 128, 0); // TODO set this to modified value of color
 			}
+
 			ofSetLineWidth(thickness);
 			ofDrawLine(pJointPoints[joint0], pJointPoints[joint1]);
 		}

@@ -25,6 +25,7 @@ namespace ofxKinectForWindows2 {
 
 		// -------
 		class Body : public BaseFrame<IBodyFrameReader, IBodyFrame> {
+
 		public:
 			string getTypeName() const override;
 			void init(IKinectSensor *, bool) override;
@@ -39,6 +40,7 @@ namespace ofxKinectForWindows2 {
 			ICoordinateMapper * getCoordinateMapper();
 
 			const vector<Data::Body> & getBodies() const;
+			const Data::Body & getBody(int n = 0) { return bodies[n]; }
 			map<JointType, ofVec2f> getProjectedJoints(int bodyIdx, ProjectionCoordinates proj = ColorCamera);
 
 			const Vector4 getFloorClipPlane() {
@@ -47,7 +49,7 @@ namespace ofxKinectForWindows2 {
 
 			ofMatrix4x4 getFloorTransform();
 
-			static void drawProjectedBone(map<JointType, Data::Joint> & pJoints, map<JointType, ofVec2f> & pJointPoints, JointType joint0, JointType joint1);
+			static void drawProjectedBone(map<JointType, Data::Joint> & pJoints, map<JointType, ofVec2f> & pJointPoints, JointType joint0, JointType joint1, ofColor color = ofColor::green);
 			static void drawProjectedHand(HandState handState, ofVec2f & handPos);
 
 			const bool &getGestureIsContinuous(int body_index, int n) { return gesture_states[body_index][n].continuous; }
@@ -57,6 +59,8 @@ namespace ofxKinectForWindows2 {
 			const int &getGestureID(int body_index, int n) { return getGestureDetected(body_index, n) ? gesture_states[body_index][n].id : -1; } // internal tracking/body id it is linked ot.
 			int getGestureCount() { return pGesture.size(); }
 
+			const ofColor getColor(int body_index) { return colors[body_index]; }
+
 		protected:
 			void initReader(IKinectSensor *) override;
 
@@ -65,7 +69,6 @@ namespace ofxKinectForWindows2 {
 			Vector4 floorClipPlane;
 
 			vector<Data::Body> bodies;
-			
 
 			vector< vector<GestureState> > gesture_states;
 			IVisualGestureBuilderDatabase * database;
@@ -73,6 +76,10 @@ namespace ofxKinectForWindows2 {
 			IVisualGestureBuilderFrameSource* pGestureSource[BODY_COUNT];
 			IVisualGestureBuilderFrameReader* pGestureReader[BODY_COUNT];
 			bool useGesture;
+
+
+			vector<ofColor> colors{ ofColor::red, ofColor::green, ofColor::blue, ofColor::magenta, ofColor::cyan, ofColor::orange };
+			//ofColor::fromHsb(255 / 0, 200, 255)
 
 		};
 	}
