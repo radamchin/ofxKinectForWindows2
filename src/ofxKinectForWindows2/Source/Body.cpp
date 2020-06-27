@@ -147,9 +147,11 @@ namespace ofxKinectForWindows2 {
 			try {
 				//acquire frame
 				if (FAILED(multiFrame->get_BodyFrameReference(&reference))) {
+					SafeRelease(reference);
 					return; // we often throw here when no new frame is available
 				}
 				if (FAILED(reference->AcquireFrame(&frame))) {
+					SafeRelease(frame);
 					return; // we often throw here when no new frame is available
 				}
 				update(frame);
