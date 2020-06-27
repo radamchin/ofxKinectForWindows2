@@ -3,11 +3,11 @@ ofxKinectForWindows2
 
 
   How to configure in oF0.11 and VS 2017 (May 2020)
-  * Generate project in project generator, but DO NOT including the ofxKinectForWIndows2 addon
-  * Open project, then the Property Manager (View -> Other Windows -> Property Manager)
-  * Right click on your project to select "Add Existing Property Sheet..." and select the ../of/addons/ofxKinectForWindows2/ofxKinectForWindows2.props file.
-  * Go back to Solution Explorer, right click Solution and choose.. Add.. -> Existing Project.  Choosing ../of/addons/ofxKinectForWindows2/ofxKinectForWindows2Lib/ofxKinectForWindows2Lib.vcxproj
-  * Right click references of your app in Solution Explorer, choose Add Reference.. and select ofxKinectForWindows2Lib
+  * Generate a project wit Project Generator, _*DO NOT include the ofxKinectForWIndows2 addon_
+  * Open project, then in the Property Manager _(View -> Other Windows -> Property Manager)_:
+  * Right click on your project & choose "Add Existing Property Sheet...", select the file ../of_root/addons/ofxKinectForWindows2/ofxKinectForWindows2.props.
+  * Go back to Solution Explorer & right click Solution and choose _.. Add.. -> Existing Project._  Choosing _../of_root/addons/ofxKinectForWindows2/ofxKinectForWindows2Lib/ofxKinectForWindows2Lib.vcxproj_
+  * Right click references of your app in Solution Explorer, Choosing _Add Reference.._ and select _ofxKinectForWindows2Lib_
   
 ====================
 
