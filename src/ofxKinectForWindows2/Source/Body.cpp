@@ -282,6 +282,9 @@ namespace ofxKinectForWindows2 {
 														float confidence;
 														pGestureResult->get_Confidence(&confidence);
 														gesture_states[i][g].value = confidence;
+														if (FAILED(pGestureResult->get_FirstFrameDetected(&gesture_states[i][g].firstFrameDetected))) {
+															throw Exception("Failed to get discrete gesture firstframe detected");
+														}
 														//gesture_states[i][g].id = g;
 
 														UINT64 num;

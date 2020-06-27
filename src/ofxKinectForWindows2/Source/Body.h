@@ -18,6 +18,7 @@ namespace ofxKinectForWindows2 {
 			bool continuous;		// Is it a continuous gesture (if false, discrete)
 			float value;			// Confidence or Progress
 			bool detected;			// Mainly for discrete gesture.
+			BOOLEAN firstFrameDetected; // discrete gestures
 			int id;
 			uint64_t update_time;	 // ofGetElapsedTimeMillis() of when update occured
 			string name;
@@ -53,6 +54,7 @@ namespace ofxKinectForWindows2 {
 			static void drawProjectedHand(HandState handState, ofVec2f & handPos);
 
 			const bool &getGestureIsContinuous(int body_index, int n) { return gesture_states[body_index][n].continuous; }
+			const bool &getGestureIsFirstFrameDetected(int body_index, int n) { return gesture_states[body_index][n].firstFrameDetected; }
 			const bool &getGestureDetected(int body_index, int n) { return gesture_states[body_index][n].detected; }
 			const float &getGestureValue(int body_index, int n) { return gesture_states[body_index][n].value; } // progress or confidence.
 			const string &getGestureName(int body_index, int n) { return gesture_states[body_index][n].name; }
