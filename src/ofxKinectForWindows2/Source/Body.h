@@ -15,9 +15,9 @@ namespace ofxKinectForWindows2 {
 
 		struct GestureState {
 			int body;				// index of body associated too
-			bool continuous;		// Is it a continuous gesture (if false, discrete)
+			BOOLEAN continuous;		// Is it a continuous gesture (if false, discrete)
 			float value;			// Confidence or Progress
-			bool detected;			// Mainly for discrete gesture.
+			BOOLEAN detected;			// Mainly for discrete gesture.
 			BOOLEAN firstFrameDetected; // discrete gestures
 			int id;
 			uint64_t update_time;	 // ofGetElapsedTimeMillis() of when update occured

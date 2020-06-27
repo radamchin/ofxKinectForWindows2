@@ -129,7 +129,7 @@ namespace ofxKinectForWindows2 {
 						}
 					}
 					else {
-						throw(Exception("gesture is null"));
+						throw(Exception("Gesture is null"));
 						return false;
 					}
 				}
@@ -244,7 +244,9 @@ namespace ofxKinectForWindows2 {
 
 								if (SUCCEEDED(pGestureReader[i]->CalculateAndAcquireLatestFrame(&pGestureFrame))) {
 									BOOLEAN bGestureTracked = false;
-									pGestureFrame->get_IsTrackingIdValid(&bGestureTracked);
+									if (FAILED(pGestureFrame->get_IsTrackingIdValid(&bGestureTracked))) {
+										throw Exception("failed to retrieve tracking id validity");
+									}
 
 									if (bGestureTracked) {
 										IDiscreteGestureResult* pGestureResult = nullptr;
@@ -259,6 +261,7 @@ namespace ofxKinectForWindows2 {
 
 											if (gestureType == GestureType::GestureType_Continuous) {
 												if (SUCCEEDED(pGestureFrame->get_ContinuousGestureResult(pGesture[g], &pContinuousGestureResult))) {
+
 													float progress;
 													pContinuousGestureResult->get_Progress(&progress);
 													gesture_states[i][g].detected = true;
@@ -266,32 +269,44 @@ namespace ofxKinectForWindows2 {
 													//gesture_states[i][g].id = g;
 													gesture_states[i][g].update_time = ofGetElapsedTimeMillis();
 
-													UINT64 num;
-													pGestureFrame->get_TrackingId(&num);
+													//UINT64 num;
+													//pGestureFrame->get_TrackingId(&num);
 													//ofLog(OF_LOG_VERBOSE, "gesture:" + ofToString(j) + ", id:" + ofToString(num));
 												}
+												SafeRelease(pContinuousGestureResult);
 											}
 											else if (gestureType == GestureType::GestureType_Discrete) {
 												if (SUCCEEDED(pGestureFrame->get_DiscreteGestureResult(pGesture[g], &pGestureResult))) {
-													BOOLEAN bDetected = false;
-													pGestureResult->get_Detected(&bDetected);
-													gesture_states[i][g].detected = bDetected;
+													
+													//BOOLEAN bDetected = false;
+													//pGestureResult->get_Detected(&bDetected);
+													//gesture_states[i][g].detected = bDetected;
+
+													if ( FAILED( pGestureResult->get_Detected( &gesture_states[i][g].detected ) ) ) {
+														throw Exception("Failed to get discrete gesture detected");
+													}
+
 													gesture_states[i][g].update_time = ofGetElapsedTimeMillis();
 
-													if (bDetected) {
-														float confidence;
-														pGestureResult->get_Confidence(&confidence);
-														gesture_states[i][g].value = confidence;
+													if ( gesture_states[i][g].detected ) {
+														//float confidence;
+														//pGestureResult->get_Confidence(&confidence);
+														//gesture_states[i][g].value = confidence;
+
 														if (FAILED(pGestureResult->get_FirstFrameDetected(&gesture_states[i][g].firstFrameDetected))) {
 															throw Exception("Failed to get discrete gesture firstframe detected");
 														}
+
+														if (FAILED(pGestureResult->get_Confidence(&gesture_states[i][g].value))) {
+															throw Exception("Failed to get discrete gesture confidence");
+														}
+
 														//gesture_states[i][g].id = g;
 
-														UINT64 num;
-														pGestureFrame->get_TrackingId(&num);
-														ofLogVerbose() << "body:" << gesture_states[i][g].body << "," << i << ", gesture:" << gesture_states[i][g].id << "," << g << ", name:'" << gesture_states[i][g].name << "', confidence:" + ofToString(confidence,2) + ", tracking-id:"  << num;
+														//UINT64 num;
+														//pGestureFrame->get_TrackingId(&num);
+														//ofLogVerbose() << "body:" << gesture_states[i][g].body << "," << i << ", gesture:" << gesture_states[i][g].id << "," << g << ", name:'" << gesture_states[i][g].name << "', confidence:" + ofToString(confidence,2) + ", tracking-id:"  << num;
 													}
-
 												}
 											}
 										}
