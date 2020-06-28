@@ -76,6 +76,8 @@ namespace ofxKinectForWindows2 {
 						throw(Exception("Failed to open reader"));
 						return false;
 					}
+
+					pGestureReader[i]->put_IsPaused(true);
 				}
 
 				UINT gesture_count;
@@ -208,6 +210,16 @@ namespace ofxKinectForWindows2 {
 							body.trackingId = trackingId;
 							if (useGesture) { 
 								pGestureSource[i]->put_TrackingId(trackingId);
+
+								BOOLEAN reading_paused = true;
+								if ((FAILED(pGestureReader[i]->get_IsPaused(&reading_paused))))	 {
+									throw Exception("Failed to get gesture reading paused state");
+								}
+								if (reading_paused) {
+									pGestureReader[i]->put_IsPaused(false);
+								}
+							
+								
 							}
 
 							// retrieve joint position & orientation
@@ -319,6 +331,21 @@ namespace ofxKinectForWindows2 {
 							}
 
 						}
+						else { // end if::bTracked
+
+							if (useGesture) {
+
+								BOOLEAN reading_paused = false;
+								if ((FAILED(pGestureReader[i]->get_IsPaused(&reading_paused)))) {
+									throw Exception("Failed to get gesture reading paused state");
+								}
+								if (!reading_paused) {
+									pGestureReader[i]->put_IsPaused(true);
+								}
+							}
+
+						}
+
 					}
 				}
 
