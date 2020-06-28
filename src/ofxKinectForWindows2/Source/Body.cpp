@@ -94,6 +94,7 @@ namespace ofxKinectForWindows2 {
 						state.id = g;
 						state.value = false;
 						state.detected = false;
+						state.firstFrameDetected = false;
 						state.name = "Unknown";
 						state.update_time = ofGetElapsedTimeMillis();
 						state.body = b;
@@ -268,12 +269,13 @@ namespace ofxKinectForWindows2 {
 
 										for (int g = 0; g<pGesture.size(); g++) {
 
-											// TODO: Could save looking up type by reading gesture_states[i][g].continuous
+											// TODO: Could save looking up type everytime by reading gesture_states[i][g].continuous
 
 											GestureType gestureType;
 											pGesture[g]->get_GestureType(&gestureType);
 
 											if (gestureType == GestureType::GestureType_Continuous) {
+
 												if (SUCCEEDED(pGestureFrame->get_ContinuousGestureResult(pGesture[g], &pContinuousGestureResult))) {
 
 													float progress;
@@ -290,6 +292,7 @@ namespace ofxKinectForWindows2 {
 												SafeRelease(pContinuousGestureResult);
 											}
 											else if (gestureType == GestureType::GestureType_Discrete) {
+
 												if (SUCCEEDED(pGestureFrame->get_DiscreteGestureResult(pGesture[g], &pGestureResult))) {
 													
 													//BOOLEAN bDetected = false;
