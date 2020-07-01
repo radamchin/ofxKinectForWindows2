@@ -53,6 +53,9 @@ namespace ofxKinectForWindows2 {
 			static void drawProjectedBone(map<JointType, Data::Joint> & pJoints, map<JointType, ofVec2f> & pJointPoints, JointType joint0, JointType joint1, ofColor color = ofColor::green);
 			static void drawProjectedHand(HandState handState, ofVec2f & handPos);
 
+			bool getGestureReaderPausedState(int body_index);
+
+
 			const bool &getGestureIsContinuous(int body_index, int n) { return gesture_states[body_index][n].continuous; }
 			const bool &getGestureIsFirstFrameDetected(int body_index, int n) { return gesture_states[body_index][n].firstFrameDetected; }
 			const bool &getGestureDetected(int body_index, int n) { return gesture_states[body_index][n].detected; }

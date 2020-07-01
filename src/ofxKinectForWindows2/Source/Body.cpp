@@ -63,6 +63,20 @@ namespace ofxKinectForWindows2 {
 		}
 
 		//----------
+		bool Body::getGestureReaderPausedState(int body_index) {
+			BOOLEAN state = false;
+
+			if (useGesture) {
+				if ( FAILED( pGestureReader[body_index]->get_IsPaused(&state) ) ) {
+					throw Exception("Failed to get gesture reading paused state");
+					return false;
+				}
+			}
+
+			return state;
+		}
+
+		//----------
 		bool Body::initGestures(IKinectSensor * sensor, wstring db_file) {
 
 			if (SUCCEEDED(CreateVisualGestureBuilderDatabaseInstanceFromFile(db_file.c_str(), &database))) {
