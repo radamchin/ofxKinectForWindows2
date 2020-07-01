@@ -76,6 +76,17 @@ namespace ofxKinectForWindows2 {
 			return state;
 		}
 
+		void Body::setGestureReaderPausedState(int body_index, bool state) {
+
+			if (FAILED(pGestureReader[body_index]->put_IsPaused(state))) {
+				throw Exception("Failed to set gesture reading paused state");
+				return;
+			}
+
+			if(!state) gesture_last_unpause_times[body_index] = ofGetFrameNum();
+
+		}
+
 		//----------
 		bool Body::initGestures(IKinectSensor * sensor, wstring db_file) {
 
@@ -91,7 +102,9 @@ namespace ofxKinectForWindows2 {
 						return false;
 					}
 
-					pGestureReader[i]->put_IsPaused(true);
+					gesture_last_unpause_times[i] = 0; // this will get set to framenum if setGestureReaderPausedState
+
+					setGestureReaderPausedState(i, true);
 				}
 
 				UINT gesture_count;
@@ -181,9 +194,12 @@ namespace ofxKinectForWindows2 {
 
 		//----------
 		void Body::update(IBodyFrame * frame) {
+
 			this->isFrameNewFlag = true;
 			IFrameDescription * frameDescription = NULL;
+
 			try {
+
 				INT64 nTime = 0;
 				if (FAILED(frame->get_RelativeTime(&nTime))) {
 					throw Exception("Failed to get relative time");
@@ -198,13 +214,22 @@ namespace ofxKinectForWindows2 {
 					throw Exception("Failed to refresh body data");
 				}
 
+				int gestures_read_for_body = -1;
+
+				bool canReadGestures = true; // 
+
+				//bool found_valid_body = false;
+
 				for (int i = 0; i < BODY_COUNT; ++i) {
+					
+					// if (found_valid_body) break; //test already found a body lets see if the gesture bug occurs still
+
 					auto & body = bodies[i];
 					body.clear();
 
 					IBody* pBody = ppBodies[i];
-					if (pBody)
-					{
+					if (pBody) {
+
 						BOOLEAN bTracked = false;
 						if (FAILED(pBody->get_IsTracked(&bTracked))) {
 							throw Exception("Failed to get tracking status");
@@ -212,32 +237,64 @@ namespace ofxKinectForWindows2 {
 						body.tracked = bTracked;
 						body.bodyId = i;
 
-						if (bTracked)
-						{
-							// retrieve tracking id
+						canReadGestures = (gestures_read_for_body == -1) && (ofGetFrameNum() - gesture_last_unpause_times[i] > 1);
 
-							UINT64 trackingId = -1;
+						if (bTracked) {
+
+							// found_valid_body = true;
+
+							// Retrieve tracking id
+							UINT64 trackingId = 0;
 
 							if (FAILED(pBody->get_TrackingId(&trackingId))) {
 								throw Exception("Failed to get tracking id");
 							}
 
 							body.trackingId = trackingId;
-							if (useGesture) { 
-								pGestureSource[i]->put_TrackingId(trackingId);
 
-								BOOLEAN reading_paused = true;
+							if (useGesture) { 
+								
+								UINT64 gestureTrackingId;
+								if(FAILED(pGestureSource[i]->get_TrackingId(&gestureTrackingId))) {
+									throw Exception("Failed to get gesture source tracking id");
+								}
+
+								if (gestureTrackingId != trackingId) {
+									// update the corresponding gesture detector with the new value
+									pGestureSource[i]->put_TrackingId(trackingId);
+
+									// From the DiscreteGestureBasics-WPF file.
+									// if the current body is tracked, unpause its detector to get VisualGestureBuilderFrameArrived events
+									// if the current body is not tracked, pause its detector so we don't waste resources trying to get invalid gesture results
+									//  this.gestureDetectorList[i].IsPaused = trackingId == 0; // c# ref. code.
+
+									if (trackingId == 0) {
+										setGestureReaderPausedState(i,true);
+									} else {
+										// Only unpause if valid trackingId and canRead
+									//	setGestureReaderPausedState(i, !canReadGestures);
+									}
+
+								}
+
+								if (canReadGestures) {
+									// unpause
+									setGestureReaderPausedState(i, false);
+								}
+
+								/*BOOLEAN reading_paused = true;
+
 								if ((FAILED(pGestureReader[i]->get_IsPaused(&reading_paused))))	 {
 									throw Exception("Failed to get gesture reading paused state");
 								}
 								if (reading_paused) {
 									pGestureReader[i]->put_IsPaused(false);
-								}
-							
-								
+									//pGestureSource[i]->put_TrackingId(trackingId);
+								}*/
+															
 							}
 
-							// retrieve joint position & orientation
+							// Retrieve joint position & orientation
 
 							_Joint joints[JointType_Count];
 							_JointOrientation jointsOrient[JointType_Count];
@@ -268,106 +325,118 @@ namespace ofxKinectForWindows2 {
 							body.leftHandState = leftHandState;
 							body.rightHandState = rightHandState;
 
-							if (useGesture) {
-								IVisualGestureBuilderFrame* pGestureFrame = nullptr;
+							if (useGesture){
+								if(canReadGestures) {
 
-								if (SUCCEEDED(pGestureReader[i]->CalculateAndAcquireLatestFrame(&pGestureFrame))) {
-									BOOLEAN bGestureTracked = false;
-									if (FAILED(pGestureFrame->get_IsTrackingIdValid(&bGestureTracked))) {
-										throw Exception("failed to retrieve tracking id validity");
-									}
+									gestures_read_for_body = i;
 
-									if (bGestureTracked) {
-										IDiscreteGestureResult* pGestureResult = nullptr;
-										IContinuousGestureResult* pContinuousGestureResult = nullptr;
+									IVisualGestureBuilderFrame* pGestureFrame = nullptr;
 
-										for (int g = 0; g<pGesture.size(); g++) {
+									if (SUCCEEDED(pGestureReader[i]->CalculateAndAcquireLatestFrame(&pGestureFrame))) {
+										BOOLEAN bGestureTracked = false;
+										if (FAILED(pGestureFrame->get_IsTrackingIdValid(&bGestureTracked))) {
+											throw Exception("failed to retrieve tracking id validity");
+										}
 
-											// TODO: Could save looking up type everytime by reading gesture_states[i][g].continuous
+										// extra sanity check for the multiple body gesture noise errors.
+										/*BOOLEAN bFrameSourceActive = false;
+										if ( FAILED(pGestureSource[i]->get_IsActive(&bFrameSourceActive)) ) {
+											throw Exception("failed to retrieve frame source active");
+										}*/
 
-											GestureType gestureType;
-											pGesture[g]->get_GestureType(&gestureType);
+										if (bGestureTracked) { // && bFrameSourceActive
 
-											if (gestureType == GestureType::GestureType_Continuous) {
+											IDiscreteGestureResult* pGestureResult = nullptr;
+											IContinuousGestureResult* pContinuousGestureResult = nullptr;
 
-												if (SUCCEEDED(pGestureFrame->get_ContinuousGestureResult(pGesture[g], &pContinuousGestureResult))) {
+											for (int g = 0; g < pGesture.size(); g++) {
 
-													float progress;
-													pContinuousGestureResult->get_Progress(&progress);
-													gesture_states[i][g].detected = true;
-													gesture_states[i][g].value = progress;
-													//gesture_states[i][g].id = g;
-													gesture_states[i][g].update_time = ofGetElapsedTimeMillis();
+												// TODO: Could save looking up type everytime by reading gesture_states[i][g].continuous
 
-													//UINT64 num;
-													//pGestureFrame->get_TrackingId(&num);
-													//ofLog(OF_LOG_VERBOSE, "gesture:" + ofToString(j) + ", id:" + ofToString(num));
-												}
-												SafeRelease(pContinuousGestureResult);
-											}
-											else if (gestureType == GestureType::GestureType_Discrete) {
+												GestureType gestureType;
+												pGesture[g]->get_GestureType(&gestureType);
 
-												if (SUCCEEDED(pGestureFrame->get_DiscreteGestureResult(pGesture[g], &pGestureResult))) {
-													
-													//BOOLEAN bDetected = false;
-													//pGestureResult->get_Detected(&bDetected);
-													//gesture_states[i][g].detected = bDetected;
+												if (gestureType == GestureType::GestureType_Continuous) {
 
-													if ( FAILED( pGestureResult->get_Detected( &gesture_states[i][g].detected ) ) ) {
-														throw Exception("Failed to get discrete gesture detected");
-													}
+													if (SUCCEEDED(pGestureFrame->get_ContinuousGestureResult(pGesture[g], &pContinuousGestureResult))) {
 
-													gesture_states[i][g].update_time = ofGetElapsedTimeMillis();
-
-													if ( gesture_states[i][g].detected ) {
-														//float confidence;
-														//pGestureResult->get_Confidence(&confidence);
-														//gesture_states[i][g].value = confidence;
-
-														if (FAILED(pGestureResult->get_FirstFrameDetected(&gesture_states[i][g].firstFrameDetected))) {
-															throw Exception("Failed to get discrete gesture firstframe detected");
-														}
-
-														if (FAILED(pGestureResult->get_Confidence(&gesture_states[i][g].value))) {
-															throw Exception("Failed to get discrete gesture confidence");
-														}
-
-														//gesture_states[i][g].id = g;
+														float progress;
+														pContinuousGestureResult->get_Progress(&progress);
+														gesture_states[i][g].detected = true;
+														gesture_states[i][g].value = progress;
+														gesture_states[i][g].update_time = ofGetElapsedTimeMillis();
 
 														//UINT64 num;
 														//pGestureFrame->get_TrackingId(&num);
-														//ofLogVerbose() << "body:" << gesture_states[i][g].body << "," << i << ", gesture:" << gesture_states[i][g].id << "," << g << ", name:'" << gesture_states[i][g].name << "', confidence:" + ofToString(confidence,2) + ", tracking-id:"  << num;
+														//ofLog(OF_LOG_VERBOSE, "gesture:" + ofToString(j) + ", id:" + ofToString(num));
+													}
+													SafeRelease(pContinuousGestureResult);
+												}
+												else if (gestureType == GestureType::GestureType_Discrete) {
+
+													if (SUCCEEDED(pGestureFrame->get_DiscreteGestureResult(pGesture[g], &pGestureResult))) {
+
+														// TODO: some extra saftey tests here that this result is connected to the same body/gesture?
+
+														if (pGestureResult != NULL) {
+
+															if (FAILED(pGestureResult->get_Detected(&gesture_states[i][g].detected))) {
+																throw Exception("Failed to get discrete gesture detected");
+															}
+
+															gesture_states[i][g].update_time = ofGetElapsedTimeMillis();
+
+															if (gesture_states[i][g].detected) {
+
+																if (FAILED(pGestureResult->get_FirstFrameDetected(&gesture_states[i][g].firstFrameDetected))) {
+																	throw Exception("Failed to get discrete gesture firstframe detected");
+																}
+
+																if (FAILED(pGestureResult->get_Confidence(&gesture_states[i][g].value))) {
+																	throw Exception("Failed to get discrete gesture confidence");
+																}
+
+																//UINT64 num;
+																//pGestureFrame->get_TrackingId(&num);
+																//ofLogVerbose() << "body:" << gesture_states[i][g].body << "," << i << ", gesture:" << gesture_states[i][g].id << "," << g << ", name:'" << gesture_states[i][g].name << "', confidence:" + ofToString(confidence,2) + ", tracking-id:"  << num;
+															}
+														}
 													}
 												}
 											}
+											SafeRelease(pGestureResult);
 										}
-										SafeRelease(pGestureResult);
 									}
+									SafeRelease(pGestureFrame);
+
+								} else {
+									// make sure its paused.
+									setGestureReaderPausedState(i, true);
 								}
-								SafeRelease(pGestureFrame);
+
 							}
 
-						}
-						else { // end if::bTracked
+						} else { // end if::bTracked
 
 							if (useGesture) {
 
-								BOOLEAN reading_paused = false;
+								/*BOOLEAN reading_paused = false;
 								if ((FAILED(pGestureReader[i]->get_IsPaused(&reading_paused)))) {
 									throw Exception("Failed to get gesture reading paused state");
-								}
-								if (!reading_paused) {
-									pGestureReader[i]->put_IsPaused(true);
-								}
+								}*/
+								//if (!reading_paused) {
+									setGestureReaderPausedState(i, true);
+									pGestureSource[i]->put_TrackingId(0); // saftey 0 tracking id.
+								//}
 							}
+
 
 						}
 
 					}
 				}
 
-				for (int i = 0; i < _countof(ppBodies); ++i)
-				{
+				for (int i = 0; i < _countof(ppBodies); ++i) {
 					SafeRelease(ppBodies[i]);
 				}
 			} catch (std::exception & e) {

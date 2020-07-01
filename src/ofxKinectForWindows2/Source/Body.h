@@ -14,13 +14,13 @@ namespace ofxKinectForWindows2 {
 	namespace Source {
 
 		struct GestureState {
-			int body;				// index of body associated too
-			BOOLEAN continuous;		// Is it a continuous gesture (if false, discrete)
-			float value;			// Confidence or Progress
+			int body;					// index of body associated too
+			BOOLEAN continuous;			// Is it a continuous gesture (if false, discrete)
+			float value;				// Confidence or Progress
 			BOOLEAN detected;			// Mainly for discrete gesture.
 			BOOLEAN firstFrameDetected; // discrete gestures
-			int id;
-			uint64_t update_time;	 // ofGetElapsedTimeMillis() of when update occured
+			int id;						// index of the gesture
+			uint64_t update_time;		// ofGetElapsedTimeMillis() of when update occured
 			string name;
 		};
 
@@ -54,6 +54,7 @@ namespace ofxKinectForWindows2 {
 			static void drawProjectedHand(HandState handState, ofVec2f & handPos);
 
 			bool getGestureReaderPausedState(int body_index);
+			void setGestureReaderPausedState(int body_index, bool state); 
 
 
 			const bool &getGestureIsContinuous(int body_index, int n) { return gesture_states[body_index][n].continuous; }
@@ -75,6 +76,7 @@ namespace ofxKinectForWindows2 {
 
 			vector<Data::Body> bodies;
 
+			uint64_t gesture_last_unpause_times[BODY_COUNT];// 
 			vector< vector<GestureState> > gesture_states;
 			IVisualGestureBuilderDatabase * database;
 			vector<IGesture *> pGesture;
