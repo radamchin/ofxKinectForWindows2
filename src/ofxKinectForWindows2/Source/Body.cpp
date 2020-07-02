@@ -321,11 +321,48 @@ namespace ofxKinectForWindows2 {
 
 
 			int gestures_read_for_body = -1;
-			bool canReadGestures = true; // 
+			bool canReadGestures = true; 
 
-			for (int j = 0; j < tracked_count; j++) {
 
-				int b = tracked_body_ids[j];
+			vector<int> body_ids_to_process;
+
+			int closest_body_id = -1;
+			float closest_z = 10000;
+
+			for (int i = 0; i < tracked_count; i++) {
+				int b = tracked_body_ids[i];
+				auto & body = bodies[b];
+
+				/*
+					Here is where we limit by front most and in region, etc.
+				
+				*/
+
+				// make sure all are paused
+				setGestureReaderPausedState(b, true);
+
+				ofVec3f pos = body.joints[JointType_Neck].getPosition();
+
+				if (pos.z < closest_z) {
+					closest_z = pos.z;
+					closest_body_id = b;
+				}
+
+				// if(i == 0) 
+				// body_ids_to_process.push_back(b);
+
+
+
+			}
+
+			body_ids_to_process.push_back(closest_body_id);
+
+
+			int process_count = body_ids_to_process.size();
+
+			for (int j = 0; j < process_count; j++) {
+
+				int b = body_ids_to_process[j];
 
 				auto & body = bodies[b];
 
@@ -336,6 +373,7 @@ namespace ofxKinectForWindows2 {
 				}
 
 				if (gestureTrackingId != body.trackingId) {
+
 					// Update the corresponding gesture detector with the new value
 					pGestureSource[b]->put_TrackingId(body.trackingId);
 
@@ -383,7 +421,7 @@ namespace ofxKinectForWindows2 {
 							throw Exception("failed to retrieve tracking id validity");
 						}
 
-						// extra sanity check for the multiple body gesture noise errors.
+						// Extra sanity check for the multiple body gesture noise errors.
 						/*BOOLEAN bFrameSourceActive = false;
 						if ( FAILED(pGestureSource[i]->get_IsActive(&bFrameSourceActive)) ) {
 							throw Exception("failed to retrieve frame source active");
