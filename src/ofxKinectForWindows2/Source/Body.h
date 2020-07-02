@@ -56,6 +56,7 @@ namespace ofxKinectForWindows2 {
 			bool getGestureReaderPausedState(int body_index);
 			void setGestureReaderPausedState(int body_index, bool state); 
 
+			void processGestures(vector<int> &tracked_body_ids);
 
 			const bool &getGestureIsContinuous(int body_index, int n) { return gesture_states[body_index][n].continuous; }
 			const bool &getGestureIsFirstFrameDetected(int body_index, int n) { return gesture_states[body_index][n].firstFrameDetected; }
