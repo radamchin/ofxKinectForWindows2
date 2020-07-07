@@ -54,7 +54,7 @@ namespace ofxKinectForWindows2 {
 
 				bodies.resize(BODY_COUNT);
 
-				useGesture = false;
+				useGestures = false;
 
 			} catch (std::exception & e) {
 				SafeRelease(this->reader);
@@ -66,7 +66,7 @@ namespace ofxKinectForWindows2 {
 		bool Body::getGestureReaderPausedState(int body_index) {
 			BOOLEAN state = false;
 
-			if (useGesture) {
+			if (useGestures) {
 				if ( FAILED( pGestureReader[body_index]->get_IsPaused(&state) ) ) {
 					throw Exception("Failed to get gesture reading paused state");
 					return false;
@@ -89,6 +89,15 @@ namespace ofxKinectForWindows2 {
 
 		//----------
 		bool Body::initGestures(IKinectSensor * sensor, wstring db_file) {
+
+			
+			useGesturesDetectionZone = false;
+
+			// setup gesture zone defaults
+			gz_min_x = -4;
+			gz_max_x = 4;
+			gz_min_z = 0;
+			gz_max_z = 6;
 
 			if (SUCCEEDED(CreateVisualGestureBuilderDatabaseInstanceFromFile(db_file.c_str(), &database))) {
 				
@@ -163,8 +172,8 @@ namespace ofxKinectForWindows2 {
 						return false;
 					}
 				}
-				useGesture = true;
-				return useGesture;
+				useGestures = true;
+				return useGestures;
 			}
 			return false;
 		}
@@ -284,7 +293,7 @@ namespace ofxKinectForWindows2 {
 						}
 						else { // end if::bTracked
 
-							if (useGesture) {
+							if (useGestures) {
 								// Make sure untracked bodies have Gesture readers pause
 								setGestureReaderPausedState(i, true);
 								pGestureSource[i]->put_TrackingId(0); // saftey 0 tracking id.								
@@ -304,7 +313,7 @@ namespace ofxKinectForWindows2 {
 			}
 			SafeRelease(frameDescription);
 
-			if (useGesture) {
+			if (useGestures) {
 				processGestures(tracked_body_ids);
 			}
 
@@ -317,12 +326,10 @@ namespace ofxKinectForWindows2 {
 			int tracked_count = tracked_body_ids.size();
 
 			if (tracked_count == 0) return;
-			if (!useGesture) return;
-
+			if (!useGestures) return;
 
 			int gestures_read_for_body = -1;
 			bool canReadGestures = true; 
-
 
 			vector<int> body_ids_to_process;
 
@@ -333,37 +340,46 @@ namespace ofxKinectForWindows2 {
 				int b = tracked_body_ids[i];
 				auto & body = bodies[b];
 
-				/*
-					Here is where we limit by front most and in region, etc.
-				
-				*/
-
-				// make sure all are paused
+				// Make sure all are paused
 				setGestureReaderPausedState(b, true);
 
 				ofVec3f pos = body.joints[JointType_Neck].getPosition();
 
-				if (pos.z < closest_z) {
-					closest_z = pos.z;
-					closest_body_id = b;
+				if (useGesturesDetectionZone) {
+
+					// Is the body in our zone?
+					bool inZone = (pos.x >= gz_min_x) && (pos.x <= gz_max_x) && (pos.z >= gz_min_z) && (pos.z <= gz_max_z);
+
+					if (inZone) {
+						// Valid, lets add it to the closest z to sensor test.
+						if (pos.z < closest_z) {
+							closest_z = pos.z;
+							closest_body_id = b;
+						}
+					}
+
 				}
-
-				// if(i == 0) 
-				// body_ids_to_process.push_back(b);
-
-
+				else {
+					// Test closeness to a sensor as default way of filtering to 1 body for gesture updating
+					if (pos.z < closest_z) {
+						closest_z = pos.z;
+						closest_body_id = b;
+					}
+				}
+				 
+				// if(i == 0) body_ids_to_process.push_back(b);
 
 			}
 
-			body_ids_to_process.push_back(closest_body_id);
+			if (closest_body_id == -1) return; // did not find anyone in zone?
 
+			body_ids_to_process.push_back(closest_body_id);
 
 			int process_count = body_ids_to_process.size();
 
 			for (int j = 0; j < process_count; j++) {
 
 				int b = body_ids_to_process[j];
-
 				auto & body = bodies[b];
 
 				UINT64 gestureTrackingId;
@@ -459,8 +475,8 @@ namespace ofxKinectForWindows2 {
 
 									if ( SUCCEEDED( pGestureFrame->get_DiscreteGestureResult(pGesture[g], &pGestureResult) ) ) {
 
-										// TODO: some extra saftey tests here that this result is connected to the same body/gesture?
-
+										// TODO: For noise issue - Do some extra saftey tests here that this result is connected to the same body/gesture? -> pGestureFrame->get_TrackingId(&num);
+												
 										if (pGestureResult != NULL) {
 
 											if (FAILED(pGestureResult->get_Detected(&gesture_states[b][g].detected))) {
@@ -567,18 +583,60 @@ namespace ofxKinectForWindows2 {
 				drawProjectedHand(body.rightHandState, jntsProj[JointType_HandRight]);
 			}
 
+			if (useGesturesDetectionZone) {
+				// draw it on the floor!
+
+				// TODO: project from 3D coord to 2D?
+				/*
+				ofSetColor(ofColor::white);
+				ofSetLineWidth(2);
+
+				float def_y = 0;
+
+				ofPoint A(gz_min_x, def_y, gz_max_z); // Back Left
+				ofPoint B(gz_max_x, def_y, gz_max_z); // Back Right
+				ofPoint C(gz_max_x, def_y, gz_min_z); // Front Right
+				ofPoint D(gz_min_x, def_y, gz_min_z); // Front Left
+
+				ofVec2f a(0,0);
+
+				DepthSpacePoint projected = { 0 };
+				coordinateMapper->MapCameraPointToDepthSpace(a, &projected);
+				ofVec2f(projected.X, projected.Y);
+
+				a.set(j.second.getProjected(coordinateMapper, proj));
+				a.x = x + a.x / w * width;
+				a.y = y + a.y / h * height;
+
+				ofVec2f b(0, 0);
+				ofVec2f c(0, 0);
+				ofVec2f d(0, 0);
+
+
+			 	// ofLogNotice("drawGestureDetectionZone") << a << " : " << b << " : " << c << " : " << d;
+
+				ofDrawLine(a.x, a.y, b.x, b.y); // back
+				ofDrawLine(b.x, b.y, c.x, c.y); // right
+				ofDrawLine(c.x, c.y, d.x, d.y); // front
+				ofDrawLine(d.x, d.y, a.x, a.y); //left
+				
+				*/
+
+			}
+
+
 			ofPopStyle();
 		}
 
 		//----------
-		void Body::drawWorld() {
+		void Body::drawWorld( ofColor col ) {
 			auto bodies = this->getBodies();
 			int bodyIndex = 0;
 			for (auto & body : bodies) {
-				//draw black lines
+				//draw lines
 				ofPushStyle();
 				ofSetLineWidth(10.0f);
-				ofSetColor(0);
+				ofSetColor(col);
 				body.drawWorld();
 
 				//draw coloured lines
@@ -616,6 +674,8 @@ namespace ofxKinectForWindows2 {
 
 			ofSetLineWidth(thickness);
 			ofDrawLine(pJointPoints[joint0], pJointPoints[joint1]);
+
+			// ofLogNotice("drawProjectedBone") << pJointPoints[joint0] << " -> " << pJointPoints[joint1];
 		}
 
 		//----------

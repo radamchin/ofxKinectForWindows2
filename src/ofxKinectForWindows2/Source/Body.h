@@ -36,7 +36,7 @@ namespace ofxKinectForWindows2 {
 			void update(IMultiSourceFrame *) override;
 
 			void drawProjected(int x, int y, int width, int height, ProjectionCoordinates proj = ColorCamera);
-			void drawWorld();
+			void drawWorld( ofColor col = ofColor::black );
 
 			ICoordinateMapper * getCoordinateMapper();
 
@@ -53,11 +53,26 @@ namespace ofxKinectForWindows2 {
 			static void drawProjectedBone(map<JointType, Data::Joint> & pJoints, map<JointType, ofVec2f> & pJointPoints, JointType joint0, JointType joint1, ofColor color = ofColor::green);
 			static void drawProjectedHand(HandState handState, ofVec2f & handPos);
 
+			// Gestures
+
+			void setUseGestureDetectionZone(bool state) { 
+				ofLogNotice("setUseGestureDetectionZone") << state;
+				useGesturesDetectionZone = state;
+			}
+
+			void setGestureDetectionZoneBounds(float min_x, float max_x, float min_z, float max_z) {
+				ofLogNotice("setGestureDetectionZoneBounds") << "x="<< min_x << ".." << max_x << ", z=" << min_z << ".." << max_z;
+				gz_min_x = min_x;
+				gz_max_x = max_x;
+				gz_min_z = min_z;
+				gz_max_z = max_z;
+			}
+
 			bool getGestureReaderPausedState(int body_index);
 			void setGestureReaderPausedState(int body_index, bool state); 
 
 			void processGestures(vector<int> &tracked_body_ids);
-
+			
 			const bool &getGestureIsContinuous(int body_index, int n) { return gesture_states[body_index][n].continuous; }
 			const bool &getGestureIsFirstFrameDetected(int body_index, int n) { return gesture_states[body_index][n].firstFrameDetected; }
 			const bool &getGestureDetected(int body_index, int n) { return gesture_states[body_index][n].detected; }
@@ -83,7 +98,13 @@ namespace ofxKinectForWindows2 {
 			vector<IGesture *> pGesture;
 			IVisualGestureBuilderFrameSource* pGestureSource[BODY_COUNT];
 			IVisualGestureBuilderFrameReader* pGestureReader[BODY_COUNT];
-			bool useGesture;
+			bool useGestures;
+
+			bool useGesturesDetectionZone;
+			float gz_min_x;
+			float gz_max_x;
+			float gz_min_z;
+			float gz_max_z;
 
 
 			vector<ofColor> colors{ ofColor::red, ofColor::green, ofColor::blue, ofColor::magenta, ofColor::cyan, ofColor::orange };
